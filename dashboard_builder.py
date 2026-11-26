@@ -2,7 +2,7 @@ import json
 
 
 def build_dashboard_html(payload: dict, standalone_web: bool = False) -> str:
-    """Build a Monochrome Atelier editorial-style interactive HTML dashboard."""
+    """Build an emoji-free Monochrome Atelier interactive dashboard with TradingView Lightweight Charts + Side-by-Side Report."""
     data_json = json.dumps(payload, ensure_ascii=False)
     tw_cdn = (
         "https://cdn.tailwindcss.com"
@@ -15,8 +15,9 @@ def build_dashboard_html(payload: dict, standalone_web: bool = False) -> str:
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HWH ATELIER — 현우현 일일 종가 스크리너</title>
+  <title>HWH RESEARCH TERMINAL — 현우현 종가 스크리너 &amp; 관제</title>
   <script src="{tw_cdn}"></script>
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -24,13 +25,14 @@ def build_dashboard_html(payload: dict, standalone_web: bool = False) -> str:
     :root {{
       --black: #000000;
       --ink-900: #141414;
-      --ink-600: #615f5f;
+      --ink-600: #595757;
       --ink-500: #7d7d7d;
       --line-200: #e3e1e1;
-      --mist-100: #e9e9eb;
+      --mist-100: #f5f5f5;
       --white: #ffffff;
-      --green-600: #00a65a;
-      --red-600: #c1121f;
+      --up: #007f4e;
+      --down: #c1121f;
+      --navy: #003566;
     }}
     * {{
       border-radius: 0 !important;
@@ -40,7 +42,7 @@ def build_dashboard_html(payload: dict, standalone_web: bool = False) -> str:
       background-color: var(--white);
       color: var(--ink-900);
       font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.5;
       margin: 0;
       padding: 0;
@@ -50,502 +52,579 @@ def build_dashboard_html(payload: dict, standalone_web: bool = False) -> str:
       letter-spacing: -0.02em;
     }}
     .caps-label {{
-      font-size: 11px;
+      font-size: 10.5px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--ink-500);
-      font-weight: 500;
+      font-weight: 600;
     }}
+    .num {{ font-variant-numeric: tabular-nums; }}
     .hairline-b {{ border-bottom: 1px solid var(--line-200); }}
     .hairline-t {{ border-top: 1px solid var(--line-200); }}
     .hairline-r {{ border-right: 1px solid var(--line-200); }}
+    .hairline-l {{ border-left: 1px solid var(--line-200); }}
     .hairline-all {{ border: 1px solid var(--line-200); }}
-    .btn-black {{
-      background: var(--black);
-      color: var(--white);
-      border: 1px solid var(--black);
-      transition: background 0.2s ease, color 0.2s ease;
-    }}
-    .btn-black:hover {{
-      background: #2b2b2b;
-    }}
-    .btn-outline {{
-      background: var(--white);
-      color: var(--ink-900);
-      border: 1px solid var(--ink-900);
-      transition: background 0.2s ease, color 0.2s ease;
-    }}
-    .btn-outline:hover {{
-      background: var(--mist-100);
-    }}
-    .chip-btn {{
+    .pill-btn {{
+      border: 1px solid var(--line-200);
       background: var(--white);
       color: var(--ink-600);
-      border: 1px solid var(--line-200);
-      transition: all 0.2s ease;
+      padding: 4px 10px;
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.12s ease;
     }}
-    .chip-btn:hover {{
+    .pill-btn:hover {{
       border-color: var(--ink-900);
       color: var(--ink-900);
     }}
-    .chip-btn.active {{
-      background: var(--black);
+    .pill-btn.active {{
+      background: var(--ink-900);
+      border-color: var(--ink-900);
       color: var(--white);
-      border-color: var(--black);
     }}
-    .row-item {{
-      transition: background 0.2s ease;
-      border-bottom: 1px solid var(--line-200);
+    .stock-tab {{
+      border: 1px solid var(--line-200);
+      background: var(--white);
+      padding: 6px 11px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.12s ease;
     }}
-    .row-item:hover {{
-      background: #f7f7f8;
+    .stock-tab:hover {{ border-color: var(--ink-900); }}
+    .stock-tab.active {{
+      background: var(--ink-900);
+      color: var(--white);
+      border-color: var(--ink-900);
     }}
-    .row-item.active {{
-      background: var(--mist-100);
-      border-left: 3px solid var(--black);
+    .stock-tab.active .muted-sub {{ color: #bdbdbd; }}
+    .report-scroll {{
+      max-height: 620px;
+      overflow-y: auto;
     }}
-    .score-bar {{
-      transition: width 0.4s ease;
-    }}
-    ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
-    ::-webkit-scrollbar-thumb {{ background: var(--line-200); }}
+    .tbl-row {{ cursor: pointer; transition: background 0.1s ease; }}
+    .tbl-row:hover {{ background: var(--mist-100); }}
+    .tbl-row.selected {{ background: #efefef; }}
   </style>
 </head>
-<body class="antialiased">
-  <div class="max-w-[1380px] mx-auto px-5 sm:px-8 pb-14">
+<body>
+  <!-- TOP HEADER -->
+  <header class="hairline-b sticky top-0 z-30 bg-white">
+    <div class="max-w-[1440px] mx-auto px-5 py-3 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-baseline gap-4">
+        <span class="font-serif-display text-2xl font-normal tracking-tight text-black">HWH Terminal</span>
+        <span class="caps-label">현우현 일일 종가 스크리너 &amp; 지속 관제</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-5 text-xs">
+        <div><span class="caps-label mr-1.5">기준일</span><span id="scan-date" class="font-semibold num"></span></div>
+        <div><span class="caps-label mr-1.5">스캔</span><span id="scan-counts" class="font-semibold num"></span></div>
+        <div><span class="caps-label mr-1.5">원화체력 (USDKRW/DXY)</span><span id="fx-ratio" class="font-semibold num"></span></div>
+      </div>
+    </div>
+  </header>
 
-    <!-- Top Atelier Navigation Bar -->
-    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-5 border-b border-[#141414]">
-      <div class="flex items-center gap-6">
-        <span class="text-xs font-bold tracking-[0.2em] uppercase text-black">HWH ATELIER</span>
-        <nav class="hidden md:flex items-center gap-5 text-[11px] tracking-[0.12em] uppercase text-[#615f5f]">
-          <a href="#thermometer-sec" class="hover:text-black transition">MACRO</a>
-          <a href="#screener-sec" class="hover:text-black transition">SCREENER</a>
-          <a href="#gallery-sec" id="navGalleryLink" class="hover:text-black transition">GALLERY</a>
-        </nav>
+  <main class="max-w-[1440px] mx-auto px-5 py-5 space-y-6">
+    <!-- 1. CROSS-ASSET THERMOMETER -->
+    <section class="hairline-all bg-white">
+      <div class="px-4 py-2 hairline-b flex items-center justify-between bg-[#fafafa]">
+        <span class="caps-label">글로벌 시장 온도계 (Cross-Asset Thermometer)</span>
+        <span class="text-[11px] text-[#7d7d7d]">120일선(생명선) · 500일선(장기추세) 기준</span>
       </div>
-      <div class="flex flex-wrap items-center gap-2.5">
-        <span id="scanDateBadge" class="text-xs font-mono text-[#615f5f] mr-1"></span>
-        <button id="copyCmdBtn" class="btn-outline px-3.5 py-2 text-xs font-medium tracking-wider uppercase cursor-pointer">
-          <span id="copyCmdText">COPY RUN CMD</span>
-        </button>
-        <button id="galleryToggleBtn" class="btn-black px-4 py-2 text-xs font-medium tracking-wider uppercase cursor-pointer">
-          CHART GALLERY
-        </button>
-      </div>
-    </header>
-
-    <!-- 00 / Cross-Asset Thermometer Strip -->
-    <section id="thermometer-sec" class="py-6 hairline-b">
-      <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-2 mb-4">
-        <div class="flex items-baseline gap-3">
-          <span class="caps-label">00 · CROSS-ASSET THERMOMETER</span>
-          <span class="text-xs text-[#615f5f]">현우현 선행지표 실시간 체크</span>
-        </div>
-        <span id="fxRatioNote" class="text-xs font-medium text-[#141414]"></span>
-      </div>
-      <div id="thermometerGrid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 border-t border-l border-[#e3e1e1]"></div>
+      <div id="thermometer-grid" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 divide-x divide-y lg:divide-y-0 divide-[#e3e1e1]"></div>
     </section>
 
-    <!-- 01 / Filter & Controls Bar -->
-    <section id="screener-sec" class="py-5 hairline-b space-y-4">
-      <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-        <!-- Market Tabs -->
-        <div class="flex flex-wrap items-center gap-2">
-          <button data-market="ALL" class="market-tab chip-btn px-4 py-2 text-xs font-semibold tracking-wide cursor-pointer">전체 TOP</button>
-          <button data-market="KR" class="market-tab chip-btn px-4 py-2 text-xs font-semibold tracking-wide cursor-pointer">국내주식 (KR)</button>
-          <button data-market="US" class="market-tab chip-btn px-4 py-2 text-xs font-semibold tracking-wide cursor-pointer">미국주식 (SPY/NDX)</button>
+    <!-- 2. DAILY DIFF BRIEFING (YESTERDAY VS TODAY) -->
+    <section class="hairline-all bg-white">
+      <div class="px-4 py-2.5 hairline-b flex flex-wrap items-center justify-between gap-2 bg-[#fafafa]">
+        <div class="flex items-center gap-3">
+          <span class="caps-label">일일 변화 브리핑 (어제 vs 오늘)</span>
+          <span id="diff-dates" class="text-xs font-medium text-[#595757] num"></span>
         </div>
+        <span class="text-[11px] text-[#7d7d7d]">종목 클릭 시 하단 인터랙티브 차트 및 보고서로 즉시 이동</span>
+      </div>
+      <div id="diff-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-[#e3e1e1]"></div>
+    </section>
 
-        <!-- Underline Search & Sort -->
-        <div class="flex flex-wrap items-center gap-5">
-          <div class="flex items-center border-b border-[#141414] pb-1 w-56">
-            <input id="searchInput" type="text" placeholder="종목명 · 티커 검색" class="w-full text-sm bg-transparent text-[#141414] placeholder:text-[#7d7d7d] focus:outline-none" />
-            <span class="text-xs text-[#615f5f]">→</span>
+    <!-- 3. INTERACTIVE CHART + SIDE-BY-SIDE STOCK REPORT -->
+    <section id="workspace-section" class="hairline-all bg-white">
+      <!-- Stock Selector Bar -->
+      <div class="p-3 hairline-b bg-[#fafafa] space-y-2.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="caps-label">지속 관제 작도 종목 (트레이딩뷰 인터랙티브 차트 + 정밀 보고서)</span>
+          <div class="flex items-center gap-1.5">
+            <button class="pill-btn active" data-mkt-filter="ALL" onclick="setMarketFilter('ALL')">전체</button>
+            <button class="pill-btn" data-mkt-filter="KR" onclick="setMarketFilter('KR')">국장 KR</button>
+            <button class="pill-btn" data-mkt-filter="US" onclick="setMarketFilter('US')">미장 US</button>
           </div>
-          <select id="sortSelect" class="border-b border-[#141414] pb-1 text-sm bg-transparent text-[#141414] focus:outline-none cursor-pointer pr-2">
-            <option value="total_score">정렬: 현우현 총점순</option>
-            <option value="rr_ratio">정렬: 손익비(R:R)순</option>
-            <option value="rsi_asc">정렬: RSI 낮은순</option>
-            <option value="rs_5d">정렬: 상대강도(RS)순</option>
-          </select>
         </div>
+        <div id="watched-tabs" class="flex flex-wrap gap-1.5"></div>
       </div>
 
-      <!-- Setup Filter Chips -->
-      <div class="flex flex-wrap items-center gap-2 pt-1">
-        <span class="caps-label mr-2">SETUP FILTER</span>
-        <button data-setup="ALL" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">전체</button>
-        <button data-setup="턴어라운드 5~6단계" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">턴어라운드 5~6단계</button>
-        <button data-setup="장기이평 공포매집" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">장기이평(400~500) 매집</button>
-        <button data-setup="강세 기간조정" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">강세 기간조정</button>
-        <button data-setup="DIV" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">상승 다이버전스</button>
-        <button data-setup="CHART_ONLY" class="setup-chip chip-btn px-3 py-1.5 text-xs font-medium cursor-pointer">빗각 작도 완료만</button>
-      </div>
-    </section>
-
-    <!-- 02 / Editorial Split-Pane Workspace -->
-    <main class="grid grid-cols-1 lg:grid-cols-12 border-b border-[#e3e1e1]">
-      <!-- Left Column: Ranked Candidates (5 cols) -->
-      <div class="lg:col-span-5 lg:border-r border-[#e3e1e1] py-6 lg:pr-6">
-        <div class="flex items-baseline justify-between pb-3 mb-1 border-b border-[#141414]">
-          <div>
-            <span class="caps-label">01 · CANDIDATES</span>
-            <h2 class="font-serif-display text-3xl text-black mt-0.5">Ranked Stocks <span class="text-base font-sans font-normal text-[#615f5f]">(<span id="countReadout">0</span>)</span></h2>
+      <!-- Split View: Left Chart (62%) + Right Report (38%) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12">
+        <!-- LEFT: TradingView Lightweight Charts -->
+        <div class="lg:col-span-8 lg:hairline-r flex flex-col">
+          <!-- Chart Toolbar & Crosshair Readout -->
+          <div class="px-4 py-3 hairline-b flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div class="flex items-baseline gap-2.5">
+                <h2 id="chart-title" class="text-lg font-bold tracking-tight m-0"></h2>
+                <span id="chart-price" class="text-base font-bold num"></span>
+                <span id="chart-chg" class="text-xs font-semibold num"></span>
+              </div>
+              <div id="crosshair-readout" class="text-[11px] text-[#595757] num mt-0.5">
+                차트를 드래그해 과거~현재 앞뒤 이동, 휠로 확대/축소, 마우스를 올려 OHLC·이평선 수치를 확인하세요.
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <button id="btn-toggle-ma" class="pill-btn active" onclick="toggleLayer('ma')">이평선(7)</button>
+              <button id="btn-toggle-tl" class="pill-btn active" onclick="toggleLayer('tl')">하락빗각</button>
+              <button id="btn-toggle-lv" class="pill-btn active" onclick="toggleLayer('lv')">매집·손절선</button>
+              <span class="text-[#e3e1e1] mx-1">|</span>
+              <button class="pill-btn" onclick="setRangeBars(65)">3M</button>
+              <button class="pill-btn" onclick="setRangeBars(130)">6M</button>
+              <button class="pill-btn active" onclick="setRangeBars(260)">1Y</button>
+            </div>
           </div>
-          <span class="text-xs text-[#7d7d7d]">보유자 영역 자동 제외</span>
-        </div>
-        <div id="stockList" class="max-h-[820px] overflow-y-auto"></div>
-      </div>
 
-      <!-- Right Column: Master Analysis & Auto-Trendline Chart (7 cols) -->
-      <div id="detailPanel" class="lg:col-span-7 py-6 lg:pl-8 space-y-6">
-        <div class="py-20 text-center text-sm text-[#7d7d7d]">좌측 리스트에서 종목을 선택하세요.</div>
-      </div>
-    </main>
+          <!-- MA Legend Strip -->
+          <div class="px-4 py-1.5 hairline-b bg-[#fcfcfc] flex flex-wrap items-center gap-3 text-[11px] num">
+            <span class="font-medium text-[#7d7d7d]">SMA:</span>
+            <span style="color:#e63946">20일</span>
+            <span style="color:#1d4ed8">60일</span>
+            <span style="color:#00a65a; font-weight:700">120일(생명선)</span>
+            <span style="color:#f57c00; font-weight:700">200일</span>
+            <span style="color:#8b2fc9">300일</span>
+            <span style="color:#c59b08; font-weight:700">400일</span>
+            <span style="color:#111111; font-weight:700">500일(장기)</span>
+            <span class="text-[#d4d4d4]">|</span>
+            <span style="color:#003566; font-weight:700">하락빗각</span>
+            <span style="color:#007f4e; font-weight:700">매집존</span>
+            <span style="color:#c1121f; font-weight:700">손절선</span>
+          </div>
 
-    <!-- 03 / Top-10 Chart Gallery -->
-    <section id="gallery-sec" class="hidden py-8 space-y-5 hairline-b">
-      <div class="flex items-end justify-between pb-3 border-b border-[#141414]">
-        <div>
-          <span class="caps-label">02 · CHART ARCHIVE</span>
-          <h2 class="font-serif-display text-3xl text-black mt-0.5">Auto-Trendline Gallery <span class="text-sm font-sans font-normal text-[#615f5f]">(KR Top 5 · US Top 5)</span></h2>
+          <!-- Main Candle Chart + RSI Subchart -->
+          <div class="relative w-full bg-white">
+            <div id="tv-main-chart" class="w-full" style="height: 430px;"></div>
+            <div class="px-4 py-1 hairline-t hairline-b bg-[#fafafa] flex items-center justify-between text-[11px]">
+              <span class="caps-label">RSI (14) 모멘텀</span>
+              <span id="rsi-live-badge" class="font-semibold num text-[#4b0082]"></span>
+            </div>
+            <div id="tv-rsi-chart" class="w-full" style="height: 135px;"></div>
+          </div>
         </div>
-        <button id="closeGalleryBtn" class="btn-outline px-3 py-1.5 text-xs uppercase tracking-wider cursor-pointer">CLOSE</button>
+
+        <!-- RIGHT: Stock Research Report -->
+        <div class="lg:col-span-4 flex flex-col bg-white">
+          <div class="px-4 py-3 hairline-b bg-[#fafafa] flex items-center justify-between">
+            <span class="caps-label">종목 정밀 보고서 (HWH Memo)</span>
+            <span id="report-status-badge" class="text-[11px] font-semibold px-2 py-0.5 border border-[#141414]"></span>
+          </div>
+          <div id="report-body" class="p-4 space-y-4 report-scroll"></div>
+        </div>
       </div>
-      <div id="galleryGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
     </section>
 
-    <!-- Minimal Footer -->
-    <footer class="pt-5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-[#7d7d7d]">
-      <span>※ 본 대시보드는 현우현(hwh_gusdn524) 방법론 정량 필터링 결과이며 매매 리딩이 아닙니다. 최종 진입은 일봉 종가 마감과 본인 리스크 기준에 따르세요.</span>
-      <span id="metaStats" class="font-mono text-[#615f5f]"></span>
-    </footer>
-  </div>
+    <!-- 4. KR & US SCREENER TABLES -->
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+      <div class="hairline-all bg-white">
+        <div class="px-4 py-2.5 hairline-b bg-[#fafafa] flex items-center justify-between">
+          <span class="caps-label">KR 스크리너 TOP 15 (코스피 120 + 코스닥 80)</span>
+          <span class="text-[11px] text-[#7d7d7d]">행 클릭 시 차트·보고서 전환</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="hairline-b text-[10.5px] text-[#7d7d7d] uppercase bg-[#fcfcfc]">
+                <th class="py-2 px-3">#</th>
+                <th class="py-2 px-2">종목</th>
+                <th class="py-2 px-2 text-right">점수</th>
+                <th class="py-2 px-2">셋업</th>
+                <th class="py-2 px-2 text-right">현재가</th>
+                <th class="py-2 px-2 text-right">등락</th>
+                <th class="py-2 px-2 text-right">RSI</th>
+                <th class="py-2 px-3 text-right">R:R</th>
+              </tr>
+            </thead>
+            <tbody id="kr-table-body" class="divide-y divide-[#e3e1e1]"></tbody>
+          </table>
+        </div>
+      </div>
 
-  <!-- Lightbox Modal (Only overlay uses shadow per Monochrome Atelier spec) -->
-  <div id="lightbox" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/85 p-4 cursor-zoom-out">
-    <img id="lightboxImg" src="" alt="확대 차트" class="max-w-full max-h-[94vh] shadow-2xl border border-[#e3e1e1]" />
-  </div>
+      <div class="hairline-all bg-white">
+        <div class="px-4 py-2.5 hairline-b bg-[#fafafa] flex items-center justify-between">
+          <span class="caps-label">US 스크리너 TOP 15 (NASDAQ 100 + NYSE 120)</span>
+          <span class="text-[11px] text-[#7d7d7d]">행 클릭 시 차트·보고서 전환</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="hairline-b text-[10.5px] text-[#7d7d7d] uppercase bg-[#fcfcfc]">
+                <th class="py-2 px-3">#</th>
+                <th class="py-2 px-2">종목</th>
+                <th class="py-2 px-2 text-right">점수</th>
+                <th class="py-2 px-2">셋업</th>
+                <th class="py-2 px-2 text-right">현재가</th>
+                <th class="py-2 px-2 text-right">등락</th>
+                <th class="py-2 px-2 text-right">RSI</th>
+                <th class="py-2 px-3 text-right">R:R</th>
+              </tr>
+            </thead>
+            <tbody id="us-table-body" class="divide-y divide-[#e3e1e1]"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <script>
     const PAYLOAD = {data_json};
+    let currentKey = null;
+    let marketFilter = 'ALL';
+    let layers = {{ ma: true, tl: true, lv: true }};
+    let mainChart = null, rsiChart = null;
+    let candleSeries = null;
+    let maSeriesMap = {{}};
+    let tlSeriesList = [];
+    let priceLinesList = [];
+    let rsiSeries = null;
 
-    let state = {{
-      market: "ALL",
-      setup: "ALL",
-      search: "",
-      sort: "total_score",
-      selectedKey: null,
-    }};
+    const itemByKey = {{}};
+    (PAYLOAD.items || []).forEach(it => {{ itemByKey[it.market + ':' + it.symbol] = it; }});
+    const watchedByKey = {{}};
+    (PAYLOAD.watched || []).forEach(w => {{ watchedByKey[w.key] = w; }});
 
-    function fmtPrice(val, market) {{
-      if (val == null || isNaN(val)) return "-";
-      return market === "KR"
-        ? Math.round(val).toLocaleString("ko-KR") + "원"
-        : "$" + Number(val).toLocaleString("en-US", {{ minimumFractionDigits: 2, maximumFractionDigits: 2 }});
+    function fmtPrice(v, mkt) {{
+      if (v === null || v === undefined || isNaN(v)) return '-';
+      return mkt === 'KR' ? Math.round(v).toLocaleString('ko-KR') + '원' : '$' + Number(v).toLocaleString('en-US', {{minimumFractionDigits: 2, maximumFractionDigits: 2}});
+    }}
+
+    function chgClass(pct) {{
+      if (pct > 0) return 'text-[#007f4e]';
+      if (pct < 0) return 'text-[#c1121f]';
+      return 'text-[#595757]';
+    }}
+
+    function initHeader() {{
+      document.getElementById('scan-date').textContent = PAYLOAD.scan_date || '-';
+      const st = PAYLOAD.stats || {{}};
+      document.getElementById('scan-counts').textContent = `KR ${{st.kr_scanned || 0}} · US ${{st.us_scanned || 0}}`;
+      const fx = PAYLOAD.fx_ratio;
+      document.getElementById('fx-ratio').textContent = fx ? `${{fx}} (12.7 이하 강세)` : '-';
     }}
 
     function renderThermometer() {{
-      document.getElementById("scanDateBadge").textContent = "DATE · " + PAYLOAD.scan_date;
-      document.getElementById("metaStats").textContent =
-        `SCANNED KR ${{PAYLOAD.stats.kr_scanned}} · US ${{PAYLOAD.stats.us_scanned}} · CHARTS ${{Object.keys(PAYLOAD.charts).length}}`;
-
-      if (PAYLOAD.fx_ratio) {{
-        const r = PAYLOAD.fx_ratio;
-        const msg = r <= 13.0
-          ? `순수 원화체력 (USD/KRW÷DXY): ${{r.toFixed(2)}} — 원화 강세(12.7 근접 · 달러/미장 유리)`
-          : r >= 14.4
-          ? `순수 원화체력 (USD/KRW÷DXY): ${{r.toFixed(2)}} — 고환율(14.4~15.0 · 국장 유리)`
-          : `순수 원화체력 (USD/KRW÷DXY): ${{r.toFixed(2)}} — 중립 구간`;
-        document.getElementById("fxRatioNote").textContent = msg;
-      }}
-
-      const grid = document.getElementById("thermometerGrid");
-      grid.innerHTML = PAYLOAD.thermometer.map(t => {{
-        const up = t.chg_pct >= 0;
-        const chgClr = up ? "text-[#00a65a]" : "text-[#c1121f]";
-        return `
-          <div class="p-3.5 border-r border-b border-[#e3e1e1] bg-white flex flex-col justify-between gap-1.5">
-            <div class="flex items-center justify-between">
-              <span class="caps-label">${{t.label}}</span>
-              <span class="text-xs font-mono text-[#615f5f]">RSI ${{t.rsi}}</span>
-            </div>
-            <div class="font-serif-display text-2xl text-black leading-tight tabular-nums">${{t.price_str}}</div>
-            <div class="flex items-center justify-between text-xs">
-              <span class="font-mono font-semibold ${{chgClr}}">${{up ? "+" : ""}}${{t.chg_pct.toFixed(2)}}%</span>
-              <span class="text-[#7d7d7d]">${{t.ma_status}}</span>
-            </div>
-          </div>`;
-      }}).join("");
-    }}
-
-    function getFilteredItems() {{
-      let items = [...PAYLOAD.items];
-      if (state.market !== "ALL") items = items.filter(x => x.market === state.market);
-      if (state.setup === "DIV") items = items.filter(x => x.has_div);
-      else if (state.setup === "CHART_ONLY") items = items.filter(x => Boolean(PAYLOAD.charts[x.market + ":" + x.symbol]));
-      else if (state.setup !== "ALL") items = items.filter(x => x.setup_type === state.setup);
-
-      if (state.search.trim()) {{
-        const q = state.search.trim().toLowerCase();
-        items = items.filter(x => x.name.toLowerCase().includes(q) || x.symbol.toLowerCase().includes(q));
-      }}
-
-      items.sort((a, b) => {{
-        if (state.sort === "rr_ratio") return b.rr_ratio - a.rr_ratio;
-        if (state.sort === "rsi_asc") return a.rsi14 - b.rsi14;
-        if (state.sort === "rs_5d") return b.rs_5d - a.rs_5d;
-        return b.total_score - a.total_score;
-      }});
-      return items;
-    }}
-
-    function renderList() {{
-      const items = getFilteredItems();
-      document.getElementById("countReadout").textContent = items.length;
-      const list = document.getElementById("stockList");
-
-      if (!items.length) {{
-        list.innerHTML = `<div class="py-14 text-center text-sm text-[#7d7d7d]">조건에 맞는 종목이 없습니다.</div>`;
-        return;
-      }}
-
-      if (!state.selectedKey || !items.some(x => (x.market + ":" + x.symbol) === state.selectedKey)) {{
-        state.selectedKey = items[0].market + ":" + items[0].symbol;
-      }}
-
-      list.innerHTML = items.map((x, idx) => {{
-        const key = x.market + ":" + x.symbol;
-        const active = key === state.selectedKey;
-        const hasChart = Boolean(PAYLOAD.charts[key]);
-        const up = x.chg_pct >= 0;
-        const scoreHigh = x.total_score >= 88;
-        return `
-          <div data-key="${{key}}" class="stock-row row-item px-3.5 py-3.5 cursor-pointer flex items-center justify-between gap-3 ${{active ? 'active' : ''}}">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-mono text-[#7d7d7d] w-6">${{String(idx + 1).padStart(2, '0')}}</span>
-                <span class="text-xs font-mono px-1.5 py-0.5 border border-[#e3e1e1] text-[#615f5f]">${{x.market}}</span>
-                <span class="font-semibold text-[15px] text-[#141414] truncate">${{x.name}}</span>
-                <span class="text-xs font-mono text-[#7d7d7d]">${{x.symbol}}</span>
-                ${{hasChart ? '<span class="text-[11px] px-1.5 py-0.5 bg-black text-white font-medium">작도</span>' : ''}}
-              </div>
-              <div class="flex flex-wrap items-center gap-2.5 mt-1.5 pl-8 text-xs text-[#615f5f]">
-                <span>${{x.setup_type}}</span>
-                <span>·</span>
-                <span class="font-mono">RSI ${{x.rsi14}}</span>
-                <span>·</span>
-                <span class="font-mono">R:R 1:${{x.rr_ratio}}</span>
-                ${{x.has_div ? '<span class="text-[#00a65a] font-semibold">· 상승다이버</span>' : ''}}
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="font-serif-display text-2xl leading-none ${{scoreHigh ? 'text-[#00a65a]' : 'text-black'}}">${{x.total_score}}<span class="text-xs font-sans text-[#7d7d7d] ml-0.5">점</span></div>
-              <div class="text-xs font-mono mt-1.5 tabular-nums text-[#141414]">
-                ${{fmtPrice(x.close, x.market)}}
-                <span class="ml-1 ${{up ? 'text-[#00a65a]' : 'text-[#c1121f]'}}">${{up ? '+' : ''}}${{x.chg_pct}}%</span>
-              </div>
-            </div>
-          </div>`;
-      }}).join("");
-
-      list.querySelectorAll(".stock-row").forEach(el => {{
-        el.addEventListener("click", () => {{
-          state.selectedKey = el.dataset.key;
-          renderList();
-          renderDetail();
-        }});
-      }});
-
-      renderDetail();
-    }}
-
-    function renderDetail() {{
-      const panel = document.getElementById("detailPanel");
-      const item = PAYLOAD.items.find(x => (x.market + ":" + x.symbol) === state.selectedKey);
-      if (!item) return;
-
-      const key = item.market + ":" + item.symbol;
-      const chartB64 = PAYLOAD.charts[key];
-      const tPct = ((item.target1 / item.close - 1) * 100).toFixed(1);
-      const sPct = ((item.stop_loss / item.close - 1) * 100).toFixed(1);
-      const up = item.chg_pct >= 0;
-
-      const bars = [
-        {{ label: "이평·턴어라운드", val: item.score_ma, max: 35 }},
-        {{ label: "RSI·상승다이버", val: item.score_rsi, max: 25 }},
-        {{ label: "지지·빗각 중첩", val: item.score_sr, max: 20 }},
-        {{ label: "거래량·상대강도", val: item.score_vr, max: 20 }},
-      ];
-
-      panel.innerHTML = `
-        <!-- Editorial Header -->
-        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-4 border-b border-[#141414]">
-          <div>
-            <span class="caps-label">${{item.exchange}} · ${{item.date}}</span>
-            <h2 class="text-2xl sm:text-3xl font-bold text-black mt-1">
-              ${{item.name}} <span class="font-serif-display font-normal text-2xl text-[#615f5f] ml-1">${{item.symbol}}</span>
-            </h2>
-            <p class="text-sm text-[#615f5f] mt-1">${{item.stage}}</p>
-          </div>
-          <div class="flex items-end gap-5">
-            <div class="text-right">
-              <div class="caps-label">CLOSE</div>
-              <div class="text-xl font-bold font-mono text-black tabular-nums">${{fmtPrice(item.close, item.market)}}</div>
-              <div class="text-xs font-mono ${{up ? 'text-[#00a65a]' : 'text-[#c1121f]'}}">
-                ${{up ? '+' : ''}}${{item.chg_pct}}% · RS(5d) ${{item.rs_5d >= 0 ? '+' : ''}}${{item.rs_5d}}%
-              </div>
-            </div>
-            <div class="pl-5 border-l border-[#e3e1e1] text-right">
-              <div class="caps-label">SCORE</div>
-              <div class="font-serif-display text-4xl leading-none text-[#00a65a]">${{Math.round(item.total_score)}}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 4-Column Hairline Actionable Price Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 border-t border-l border-[#e3e1e1]">
-          <div class="p-3.5 border-r border-b border-[#e3e1e1]">
-            <div class="caps-label">BUY ZONE (매수 타점)</div>
-            <div class="text-sm font-bold font-mono text-[#00a65a] mt-1.5 leading-snug">
-              ${{fmtPrice(item.buy_lo, item.market)}}<br/>~ ${{fmtPrice(item.buy_hi, item.market)}}
-            </div>
-          </div>
-          <div class="p-3.5 border-r border-b border-[#e3e1e1]">
-            <div class="caps-label">TARGET 1 (1차 저항)</div>
-            <div class="text-base font-bold font-mono text-[#141414] mt-1.5">${{fmtPrice(item.target1, item.market)}}</div>
-            <div class="text-xs font-mono text-[#615f5f] mt-0.5">+${{tPct}}%</div>
-          </div>
-          <div class="p-3.5 border-r border-b border-[#e3e1e1]">
-            <div class="caps-label">STOP LOSS (종가 손절)</div>
-            <div class="text-base font-bold font-mono text-[#c1121f] mt-1.5">${{fmtPrice(item.stop_loss, item.market)}}</div>
-            <div class="text-xs font-mono text-[#615f5f] mt-0.5">${{sPct}}%</div>
-          </div>
-          <div class="p-3.5 border-r border-b border-[#e3e1e1]">
-            <div class="caps-label">RISK : REWARD</div>
-            <div class="font-serif-display text-3xl text-black mt-1 leading-none">1 : ${{item.rr_ratio}}</div>
-            <div class="text-xs font-mono text-[#615f5f] mt-1">RSI ${{item.rsi14}} · 20이격 ${{item.disp20 >= 0 ? '+' : ''}}${{item.disp20}}%</div>
-          </div>
-        </div>
-
-        <!-- 4-Axis Score Bars -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 py-1">
-          ${{bars.map(b => `
-            <div class="space-y-1.5">
-              <div class="flex justify-between text-xs">
-                <span class="text-[#615f5f]">${{b.label}}</span>
-                <span class="font-mono font-semibold text-black">${{b.val}}/${{b.max}}</span>
-              </div>
-              <div class="h-1.5 bg-[#e9e9eb] overflow-hidden">
-                <div class="score-bar h-full bg-black" style="width: ${{(b.val / b.max * 100).toFixed(0)}}%"></div>
-              </div>
-            </div>`).join("")}}
-        </div>
-
-        <!-- Tags & Diagnosis -->
-        <div class="p-4 bg-[#f8f8f9] border border-[#e3e1e1] space-y-2.5">
-          <div class="flex flex-wrap gap-1.5">
-            ${{item.tags.map(t => `<span class="text-xs px-2.5 py-0.5 bg-white border border-[#e3e1e1] text-[#141414]">${{t}}</span>`).join("")}}
-          </div>
-          <p class="text-sm text-[#141414] leading-relaxed">
-            <span class="font-bold text-black mr-1.5">[현우현 관점 진단]</span>${{item.comment}}
-          </p>
-        </div>
-
-        <!-- Automated HWH Trendline Chart -->
-        <div class="space-y-2">
+      const el = document.getElementById('thermometer-grid');
+      el.innerHTML = (PAYLOAD.thermometer || []).map(c => `
+        <div class="p-3 space-y-1">
           <div class="flex items-center justify-between">
-            <span class="caps-label">AUTO-TRENDLINE CHART (7 SMA · 빗각 · S/R · RSI)</span>
-            ${{chartB64 ? '<span class="text-xs text-[#615f5f]">클릭 시 확대</span>' : ''}}
+            <span class="caps-label">${{c.label}}</span>
+            <span class="text-[11px] font-semibold num ${{chgClass(c.chg_pct)}}">${{c.chg_pct > 0 ? '+' : ''}}${{c.chg_pct}}%</span>
           </div>
-          ${{chartB64
-            ? `<img src="data:image/png;base64,${{chartB64}}" alt="${{item.name}} 작도 차트" class="zoomable-chart w-full border border-[#e3e1e1] cursor-zoom-in hover:opacity-95 transition" />`
-            : `<div class="p-10 border border-dashed border-[#e3e1e1] text-center text-sm text-[#7d7d7d] space-y-1">
-                 <div>상위 Top 5(KR/US 각 5종목)에 자동 빗각 작도 차트가 생성되었습니다.</div>
-                 <div>정밀 작도가 필요하면 채팅창에 <strong class="text-black">"${{item.name}} 현우현 스타일로 작도해줘"</strong>라고 입력해 주세요.</div>
-               </div>`
-          }}
+          <div class="text-sm font-bold num">${{c.price_str}}</div>
+          <div class="flex items-center justify-between text-[11px] text-[#595757]">
+            <span>${{c.ma_status}}</span>
+            <span class="num">RSI ${{c.rsi}}</span>
+          </div>
         </div>
-      `;
-
-      const img = panel.querySelector(".zoomable-chart");
-      if (img) img.addEventListener("click", () => openLightbox(img.src));
+      `).join('');
     }}
 
-    function renderGallery() {{
-      const grid = document.getElementById("galleryGrid");
-      const chartItems = PAYLOAD.items.filter(x => Boolean(PAYLOAD.charts[x.market + ":" + x.symbol]));
-      grid.innerHTML = chartItems.map(x => {{
-        const key = x.market + ":" + x.symbol;
-        return `
-          <div class="border border-[#e3e1e1] p-4 space-y-3 bg-white">
-            <div class="flex items-baseline justify-between border-b border-[#e3e1e1] pb-2">
-              <div class="font-bold text-base text-black">${{x.name}} <span class="text-xs font-mono text-[#7d7d7d] ml-1">${{x.symbol}}</span></div>
-              <span class="text-xs font-mono font-semibold text-[#00a65a]">${{x.total_score}}점 · R:R 1:${{x.rr_ratio}}</span>
+    function renderDiff() {{
+      const d = PAYLOAD.diff || {{}};
+      document.getElementById('diff-dates').textContent = d.prev_date ? `${{d.prev_date}} → ${{PAYLOAD.scan_date}}` : '전일 스냅샷 축적 중 (내일부터 자동 비교)';
+      const cols = [
+        {{ title: '신규 TOP 10 진입', rows: d.new_top10 || [], empty: '신규 진입 종목 없음', fmt: r => `${{r.rank}}위 · ${{r.score}}점 (${{r.chg_pct > 0 ? '+' : ''}}${{r.chg_pct}}%)` }},
+        {{ title: '타점 이탈 · 급등 놓침', rows: d.missed_surged || [], empty: '급등 이탈 종목 없음', fmt: r => r.reason }},
+        {{ title: '순위 하락 · 이탈 경고', rows: d.dropped_warning || [], empty: '하락 경고 종목 없음', fmt: r => r.reason }},
+        {{ title: '아쉬운 문턱 (11~15위)', rows: d.near_miss || [], empty: '해당 대기열 없음', fmt: r => `${{r.rank}}위 · ${{r.score}}점 · R:R 1:${{r.rr_ratio}}` }},
+      ];
+      document.getElementById('diff-grid').innerHTML = cols.map(c => `
+        <div class="p-3.5 space-y-2">
+          <div class="caps-label text-[#141414]">${{c.title}}</div>
+          ${{c.rows.length ? c.rows.map(r => `
+            <div onclick="selectStock('${{r.key}}')" class="flex items-center justify-between py-1 border-b border-[#f0efef] last:border-0 cursor-pointer hover:bg-[#f5f5f5] px-1">
+              <div>
+                <span class="font-semibold text-xs">${{r.name}}</span>
+                <span class="text-[10.5px] text-[#7d7d7d] ml-1">${{r.symbol}}</span>
+              </div>
+              <span class="text-[11px] text-[#595757] num">${{c.fmt(r)}}</span>
             </div>
-            <img src="data:image/png;base64,${{PAYLOAD.charts[key]}}" class="gallery-img w-full border border-[#e3e1e1] cursor-zoom-in" />
-          </div>`;
-      }}).join("");
+          `).join('') : `<div class="text-xs text-[#7d7d7d] py-2">${{c.empty}}</div>`}}
+        </div>
+      `).join('');
+    }}
 
-      grid.querySelectorAll(".gallery-img").forEach(im => {{
-        im.addEventListener("click", () => openLightbox(im.src));
+    function renderWatchedTabs() {{
+      const el = document.getElementById('watched-tabs');
+      const list = (PAYLOAD.watched || []).filter(w => marketFilter === 'ALL' || w.market === marketFilter);
+      el.innerHTML = list.map(w => `
+        <button onclick="selectStock('${{w.key}}')" class="stock-tab ${{currentKey === w.key ? 'active' : ''}}">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold">${{w.name}}</span>
+            <span class="text-[10.5px] muted-sub num">${{w.symbol}}</span>
+          </div>
+          <div class="text-[10.5px] muted-sub num mt-0.5">${{fmtPrice(w.close, w.market)}} (${{w.chg_pct > 0 ? '+' : ''}}${{w.chg_pct}}%) · ${{w.status}}</div>
+        </button>
+      `).join('');
+    }}
+
+    function renderTables() {{
+      const items = PAYLOAD.items || [];
+      const kr = items.filter(x => x.market === 'KR').slice(0, 15);
+      const us = items.filter(x => x.market === 'US').slice(0, 15);
+      const fill = (tbodyId, rows) => {{
+        document.getElementById(tbodyId).innerHTML = rows.map((x, idx) => {{
+          const k = x.market + ':' + x.symbol;
+          return `
+            <tr onclick="selectStock('${{k}}')" class="tbl-row ${{currentKey === k ? 'selected' : ''}}">
+              <td class="py-2 px-3 num text-[#7d7d7d]">${{idx + 1}}</td>
+              <td class="py-2 px-2"><span class="font-semibold">${{x.name}}</span> <span class="text-[10.5px] text-[#7d7d7d]">${{x.symbol}}</span></td>
+              <td class="py-2 px-2 text-right font-bold num">${{x.total_score.toFixed(1)}}</td>
+              <td class="py-2 px-2 text-[11px] text-[#595757]">${{x.setup_type}}</td>
+              <td class="py-2 px-2 text-right num font-medium">${{fmtPrice(x.close, x.market)}}</td>
+              <td class="py-2 px-2 text-right num font-semibold ${{chgClass(x.chg_pct)}}">${{x.chg_pct > 0 ? '+' : ''}}${{x.chg_pct.toFixed(2)}}%</td>
+              <td class="py-2 px-2 text-right num">${{x.rsi14.toFixed(1)}}</td>
+              <td class="py-2 px-3 text-right num font-semibold">1:${{x.rr_ratio.toFixed(1)}}</td>
+            </tr>
+          `;
+        }}).join('');
+      }};
+      fill('kr-table-body', kr);
+      fill('us-table-body', us);
+    }}
+
+    function initCharts() {{
+      const mainEl = document.getElementById('tv-main-chart');
+      const rsiEl = document.getElementById('tv-rsi-chart');
+      const baseOpts = {{
+        layout: {{ background: {{ color: '#ffffff' }}, textColor: '#333333', fontFamily: 'Noto Sans KR, sans-serif', fontSize: 11 }},
+        grid: {{ vertLines: {{ color: '#f0f0f0' }}, horzLines: {{ color: '#f0f0f0' }} }},
+        crosshair: {{ mode: LightweightCharts.CrosshairMode.Normal }},
+        rightPriceScale: {{ borderColor: '#e3e1e1' }},
+        timeScale: {{ borderColor: '#e3e1e1', timeVisible: true }},
+      }};
+      mainChart = LightweightCharts.createChart(mainEl, {{ ...baseOpts, width: mainEl.clientWidth, height: 430 }});
+      rsiChart = LightweightCharts.createChart(rsiEl, {{ ...baseOpts, width: rsiEl.clientWidth, height: 135, timeScale: {{ borderColor: '#e3e1e1', visible: true }} }});
+
+      candleSeries = mainChart.addCandlestickSeries({{
+        upColor: '#00802b', downColor: '#c1121f', borderUpColor: '#00802b', borderDownColor: '#c1121f',
+        wickUpColor: '#00802b', wickDownColor: '#c1121f',
+      }});
+
+      const maColors = {{
+        sma20: ['#e63946', 1, LightweightCharts.LineStyle.Dashed],
+        sma60: ['#1d4ed8', 1, LightweightCharts.LineStyle.Dashed],
+        sma120: ['#00a65a', 2, LightweightCharts.LineStyle.Solid],
+        sma200: ['#f57c00', 2, LightweightCharts.LineStyle.Solid],
+        sma300: ['#8b2fc9', 2, LightweightCharts.LineStyle.Solid],
+        sma400: ['#c59b08', 2, LightweightCharts.LineStyle.Solid],
+        sma500: ['#111111', 3, LightweightCharts.LineStyle.Solid],
+      }};
+      Object.entries(maColors).forEach(([k, [color, lineWidth, lineStyle]]) => {{
+        maSeriesMap[k] = mainChart.addLineSeries({{ color, lineWidth, lineStyle, priceLineVisible: false, lastValueVisible: false }});
+      }});
+
+      rsiSeries = rsiChart.addLineSeries({{ color: '#6a0dad', lineWidth: 2, priceLineVisible: false }});
+      rsiSeries.createPriceLine({{ price: 70, color: '#c1121f', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true }});
+      rsiSeries.createPriceLine({{ price: 50, color: '#888888', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: false }});
+      rsiSeries.createPriceLine({{ price: 30, color: '#0047ab', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: true }});
+
+      // Sync time scales
+      mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {{
+        if (range) rsiChart.timeScale().setVisibleLogicalRange(range);
+      }});
+      rsiChart.timeScale().subscribeVisibleLogicalRangeChange(range => {{
+        if (range) mainChart.timeScale().setVisibleLogicalRange(range);
+      }});
+
+      // Crosshair readout
+      mainChart.subscribeCrosshairMove(param => {{
+        if (!param || !param.time || !currentKey) return;
+        const rows = (PAYLOAD.series || {{}})[currentKey] || [];
+        const bar = rows.find(r => r.time === param.time);
+        if (!bar) return;
+        const mkt = currentKey.split(':')[0];
+        document.getElementById('crosshair-readout').textContent =
+          `${{bar.time}} | O:${{fmtPrice(bar.open, mkt)}} H:${{fmtPrice(bar.high, mkt)}} L:${{fmtPrice(bar.low, mkt)}} C:${{fmtPrice(bar.close, mkt)}} | ` +
+          `120일:${{fmtPrice(bar.sma120, mkt)}} 500일:${{fmtPrice(bar.sma500, mkt)}} | RSI:${{bar.rsi14 ?? '-'}}`;
+      }});
+
+      window.addEventListener('resize', () => {{
+        mainChart.applyOptions({{ width: mainEl.clientWidth }});
+        rsiChart.applyOptions({{ width: rsiEl.clientWidth }});
       }});
     }}
 
-    function openLightbox(src) {{
-      const lb = document.getElementById("lightbox");
-      document.getElementById("lightboxImg").src = src;
-      lb.classList.remove("hidden");
-      lb.classList.add("flex");
+    function clearOverlayLines() {{
+      tlSeriesList.forEach(s => mainChart.removeSeries(s));
+      tlSeriesList = [];
+      priceLinesList.forEach(pl => candleSeries.removePriceLine(pl));
+      priceLinesList = [];
     }}
 
-    document.getElementById("lightbox").addEventListener("click", () => {{
-      const lb = document.getElementById("lightbox");
-      lb.classList.add("hidden");
-      lb.classList.remove("flex");
-    }});
+    function renderSelectedChart(key) {{
+      const rows = (PAYLOAD.series || {{}})[key] || [];
+      if (!rows.length) return;
+      const mkt = key.split(':')[0];
+      const w = watchedByKey[key];
+      const it = itemByKey[key];
+      const last = rows[rows.length - 1];
+      const prev = rows[rows.length - 2] || last;
+      const chg = ((last.close / prev.close) - 1) * 100;
 
-    function syncControlStyles() {{
-      document.querySelectorAll(".market-tab").forEach(btn => {{
-        btn.classList.toggle("active", btn.dataset.market === state.market);
+      document.getElementById('chart-title').textContent = `${{(w || it || {{}}).name || key}} (${{key.split(':')[1]}})`;
+      document.getElementById('chart-price').textContent = fmtPrice(last.close, mkt);
+      const chgEl = document.getElementById('chart-chg');
+      chgEl.textContent = `${{chg > 0 ? '+' : ''}}${{chg.toFixed(2)}}%`;
+      chgEl.className = `text-xs font-semibold num ${{chgClass(chg)}}`;
+      document.getElementById('rsi-live-badge').textContent = `현재 RSI(14): ${{last.rsi14 ?? '-'}}`;
+
+      candleSeries.setData(rows.map(r => ({{ time: r.time, open: r.open, high: r.high, low: r.low, close: r.close }})));
+      rsiSeries.setData(rows.filter(r => r.rsi14 !== undefined).map(r => ({{ time: r.time, value: r.rsi14 }})));
+
+      Object.entries(maSeriesMap).forEach(([k, s]) => {{
+        s.applyOptions({{ visible: layers.ma }});
+        s.setData(rows.filter(r => r[k] !== undefined).map(r => ({{ time: r.time, value: r[k] }})));
       }});
-      document.querySelectorAll(".setup-chip").forEach(btn => {{
-        btn.classList.toggle("active", btn.dataset.setup === state.setup);
-      }});
+
+      clearOverlayLines();
+
+      if (layers.tl && w && w.trendlines) {{
+        w.trendlines.forEach(tl => {{
+          const ls = mainChart.addLineSeries({{
+            color: tl.color || '#003566',
+            lineWidth: 2,
+            lineStyle: tl.style === 'dashed' ? LightweightCharts.LineStyle.Dashed : LightweightCharts.LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: true,
+            title: tl.label,
+          }});
+          ls.setData(tl.points || []);
+          tlSeriesList.push(ls);
+        }});
+      }}
+
+      if (layers.lv) {{
+        const lv = w ? w.levels : (it ? {{
+          buy1_low: it.entry_zone ? it.entry_zone[0] : null,
+          buy1_high: it.entry_zone ? it.entry_zone[1] : null,
+          stop: it.stop_loss,
+          target1: it.target_120,
+        }} : null);
+        if (lv) {{
+          const specs = [
+            [lv.buy1_high, '#007f4e', LightweightCharts.LineStyle.Dashed, '1차 매집 상단'],
+            [lv.buy1_low, '#007f4e', LightweightCharts.LineStyle.Solid, '1차 매집 하단(500일)'],
+            [lv.planb_high, '#005f99', LightweightCharts.LineStyle.Dotted, 'Plan B'],
+            [lv.stop, '#c1121f', LightweightCharts.LineStyle.Dashed, '종가 손절선'],
+            [lv.target1, '#d9480f', LightweightCharts.LineStyle.Solid, '1차 목표'],
+            [lv.target2, '#9a3412', LightweightCharts.LineStyle.Dotted, '2차 목표'],
+          ];
+          specs.forEach(([price, color, lineStyle, title]) => {{
+            if (price) {{
+              priceLinesList.push(candleSeries.createPriceLine({{ price, color, lineWidth: 1, lineStyle, axisLabelVisible: true, title }}));
+            }}
+          }});
+        }}
+      }}
+
+      mainChart.timeScale().fitContent();
     }}
 
-    document.querySelectorAll(".market-tab").forEach(btn => {{
-      btn.addEventListener("click", () => {{ state.market = btn.dataset.market; syncControlStyles(); renderList(); }});
-    }});
-    document.querySelectorAll(".setup-chip").forEach(btn => {{
-      btn.addEventListener("click", () => {{ state.setup = btn.dataset.setup; syncControlStyles(); renderList(); }});
-    }});
-    document.getElementById("searchInput").addEventListener("input", e => {{ state.search = e.target.value; renderList(); }});
-    document.getElementById("sortSelect").addEventListener("change", e => {{ state.sort = e.target.value; renderList(); }});
+    function renderReport(key) {{
+      const mkt = key.split(':')[0];
+      const w = watchedByKey[key];
+      const it = itemByKey[key];
+      const badge = document.getElementById('report-status-badge');
+      const body = document.getElementById('report-body');
 
-    function toggleGallery() {{
-      const sec = document.getElementById("gallery-sec");
-      sec.classList.toggle("hidden");
-      if (!sec.classList.contains("hidden")) sec.scrollIntoView({{ behavior: "smooth" }});
+      if (w) {{
+        badge.textContent = w.status;
+        const lv = w.levels;
+        const rep = w.report;
+        const tlHtml = (w.trendlines || []).map(t => `<div class="flex justify-between text-xs py-1 border-b border-[#f0efef]"><span>${{t.label}} (오늘 기준)</span><span class="font-semibold num">${{fmtPrice(t.today_val, mkt)}}</span></div>`).join('');
+        body.innerHTML = `
+          <div class="p-3 bg-[#fafafa] hairline-all text-xs leading-relaxed">${{rep.summary}}</div>
+          <div>
+            <div class="caps-label mb-1.5">40:60 분할 매매 전략표</div>
+            <table class="w-full text-xs border-collapse hairline-all">
+              <tr class="hairline-b"><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">1차 매집존 [40%]</td><td class="py-1.5 px-2.5 font-bold num text-[#007f4e]">${{fmtPrice(lv.buy1_low, mkt)}} ~ ${{fmtPrice(lv.buy1_high, mkt)}}</td></tr>
+              <tr class="hairline-b"><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">2차 Plan B [60%]</td><td class="py-1.5 px-2.5 font-bold num text-[#005f99]">${{fmtPrice(lv.planb_low, mkt)}} ~ ${{fmtPrice(lv.planb_high, mkt)}}</td></tr>
+              <tr class="hairline-b"><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">종가 기준 손절선</td><td class="py-1.5 px-2.5 font-bold num text-[#c1121f]">${{fmtPrice(lv.stop, mkt)}}</td></tr>
+              <tr><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">1차 / 2차 목표가</td><td class="py-1.5 px-2.5 font-bold num">${{fmtPrice(lv.target1, mkt)}} / ${{fmtPrice(lv.target2, mkt)}}</td></tr>
+            </table>
+          </div>
+          ${{tlHtml ? `<div><div class="caps-label mb-1">투영 하락빗각 레벨</div>${{tlHtml}}</div>` : ''}}
+          <div class="space-y-2.5 text-xs">
+            <div><div class="caps-label mb-0.5">기술적 진단</div><p class="m-0 text-[#333]">${{rep.technical}}</p></div>
+            <div><div class="caps-label mb-0.5">펀더멘털 체크</div><p class="m-0 text-[#333]">${{rep.fundamental}}</p></div>
+            <div><div class="caps-label mb-0.5">핵심 리스크</div><p class="m-0 text-[#333]">${{rep.risk}}</p></div>
+            <div class="p-2.5 hairline-all bg-[#f9fbfd]"><div class="caps-label text-[#003566] mb-0.5">Plan A (상방 시나리오)</div><p class="m-0 text-[#222]">${{rep.plan_a}}</p></div>
+            <div class="p-2.5 hairline-all bg-[#fdf9f9]"><div class="caps-label text-[#c1121f] mb-0.5">Plan B (하방 시나리오)</div><p class="m-0 text-[#222]">${{rep.plan_b}}</p></div>
+          </div>
+        `;
+      }} else if (it) {{
+        badge.textContent = `${{it.setup_type}} · ${{it.total_score}}점`;
+        body.innerHTML = `
+          <div class="p-3 bg-[#fafafa] hairline-all text-xs leading-relaxed">
+            스크리너 자동 진단 종목입니다. 현재가 <strong>${{fmtPrice(it.close, mkt)}}</strong> (${{it.chg_pct > 0 ? '+' : ''}}${{it.chg_pct}}%), RSI(14) <strong>${{it.rsi14}}</strong>, 손익비(R:R) <strong>1:${{it.rr_ratio}}</strong>.
+          </div>
+          <div>
+            <div class="caps-label mb-1.5">자동 산출 대응 기준</div>
+            <table class="w-full text-xs border-collapse hairline-all">
+              <tr class="hairline-b"><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">매수 관심 구간</td><td class="py-1.5 px-2.5 font-bold num text-[#007f4e]">${{it.entry_zone ? fmtPrice(it.entry_zone[0], mkt) + ' ~ ' + fmtPrice(it.entry_zone[1], mkt) : '-'}}</td></tr>
+              <tr class="hairline-b"><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">종가 기준 손절선</td><td class="py-1.5 px-2.5 font-bold num text-[#c1121f]">${{fmtPrice(it.stop_loss, mkt)}}</td></tr>
+              <tr><td class="py-1.5 px-2.5 text-[#595757] bg-[#fafafa]">1차 목표 (120일선 등)</td><td class="py-1.5 px-2.5 font-bold num">${{fmtPrice(it.target_120, mkt)}}</td></tr>
+            </table>
+          </div>
+          <div class="text-xs text-[#595757] leading-relaxed">
+            상세 빗각·펀더멘털 정밀 보고서를 추가하려면 채팅창에서 해당 종목의 정밀 작도를 요청하세요.
+          </div>
+        `;
+      }} else {{
+        badge.textContent = '데이터 없음';
+        body.innerHTML = '<div class="text-xs text-[#7d7d7d]">선택한 종목의 보고서 데이터가 없습니다.</div>';
+      }}
     }}
-    document.getElementById("galleryToggleBtn").addEventListener("click", toggleGallery);
-    document.getElementById("navGalleryLink").addEventListener("click", e => {{ e.preventDefault(); toggleGallery(); }});
-    document.getElementById("closeGalleryBtn").addEventListener("click", () => {{
-      document.getElementById("gallery-sec").classList.add("hidden");
-    }});
 
-    document.getElementById("copyCmdBtn").addEventListener("click", () => {{
-      navigator.clipboard?.writeText("오늘 국장/미장 현우현 스크리너 돌려줘");
-      const txt = document.getElementById("copyCmdText");
-      txt.textContent = "COPIED!";
-      setTimeout(() => txt.textContent = "COPY RUN CMD", 2000);
-    }});
+    function selectStock(key) {{
+      if (!((PAYLOAD.series || {{}})[key])) return;
+      currentKey = key;
+      renderWatchedTabs();
+      renderTables();
+      renderSelectedChart(key);
+      renderReport(key);
+      document.getElementById('workspace-section').scrollIntoView({{ behavior: 'smooth', block: 'nearest' }});
+    }}
 
+    function setMarketFilter(mkt) {{
+      marketFilter = mkt;
+      document.querySelectorAll('[data-mkt-filter]').forEach(b => b.classList.toggle('active', b.dataset.mktFilter === mkt));
+      renderWatchedTabs();
+    }}
+
+    function toggleLayer(name) {{
+      layers[name] = !layers[name];
+      document.getElementById('btn-toggle-' + name).classList.toggle('active', layers[name]);
+      if (currentKey) renderSelectedChart(currentKey);
+    }}
+
+    function setRangeBars(cnt) {{
+      const rows = (PAYLOAD.series || {{}})[currentKey] || [];
+      if (!rows.length) return;
+      const to = rows.length - 1;
+      const from = Math.max(0, rows.length - cnt);
+      mainChart.timeScale().setVisibleLogicalRange({{ from, to: to + 12 }});
+    }}
+
+    // Boot
+    initHeader();
     renderThermometer();
-    syncControlStyles();
-    renderList();
-    renderGallery();
+    renderDiff();
+    initCharts();
+    const defaultKey = (PAYLOAD.watched && PAYLOAD.watched[0] && PAYLOAD.watched[0].key) || Object.keys(PAYLOAD.series || {{}})[0];
+    if (defaultKey) selectStock(defaultKey);
   </script>
 </body>
 </html>

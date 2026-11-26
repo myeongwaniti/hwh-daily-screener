@@ -11,8 +11,10 @@ from data_fetcher import fetch_market_thermometer, fetch_universe_data
 from hwh_scorer import add_indicators, score_stock
 from hwh_chart_drawer import draw_hwh_chart
 from dashboard_builder import build_dashboard_html
+from diff_engine import build_series_payload, compute_daily_diff, evaluate_watched_markups
 
 OUT_DIR = Path(__file__).resolve().parent / "output"
+BASE_DIR = Path(__file__).resolve().parent
 
 
 def _build_thermometer(benchmarks: dict) -> tuple[list[dict], float | None]:
@@ -112,6 +114,38 @@ def run(
     top_items = kr_scored[:25] + us_scored[:25]
     top_items.sort(key=lambda x: x["total_score"], reverse=True)
 
+    # Load persistent watched markups and ensure their OHLCV data is available
+    markups_path = BASE_DIR / "watched_markups.json"
+    markups = json.loads(markups_path.read_text(encoding="utf-8")) if markups_path.exists() else {}
+    dmaps = {}
+    for sym, df in kr_data.items():
+        dmaps[f"KR:{sym}"] = df
+    for sym, df in us_data.items():
+        dmaps[f"US:{sym}"] = df
+
+    missing_kr = [{"symbol": v["symbol"], "name": v["name"], "exchange": "KOSPI"} for k, v in markups.items() if k not in dmaps and v["market"] == "KR"]
+    missing_us = [{"symbol": v["symbol"], "name": v["name"], "exchange": "NASDAQ"} for k, v in markups.items() if k not in dmaps and v["market"] == "US"]
+    if missing_kr:
+        for sym, df in fetch_universe_data(missing_kr, "KR", use_cache=not no_cache).items():
+            dmaps[f"KR:{sym}"] = df
+    if missing_us:
+        for sym, df in fetch_universe_data(missing_us, "US", use_cache=not no_cache).items():
+            dmaps[f"US:{sym}"] = df
+
+    watched_items = evaluate_watched_markups(markups, dmaps)
+    diff_report = compute_daily_diff(OUT_DIR, today_str, kr_scored, us_scored)
+
+    # Build compact interactive OHLC + 7 SMAs + RSI series for TradingView Lightweight Charts
+    series_data = {}
+    target_keys = (
+        [f"KR:{x['symbol']}" for x in kr_scored[:15]]
+        + [f"US:{x['symbol']}" for x in us_scored[:15]]
+        + list(markups.keys())
+    )
+    for k in dict.fromkeys(target_keys):
+        if k in dmaps and len(dmaps[k]) >= 30:
+            series_data[k] = build_series_payload(dmaps[k], max_bars=260)
+
     print(f"[4/5] Rendering HWH auto-trendline charts (KR Top {top_charts} + US Top {top_charts})...", flush=True)
     charts_b64 = {}
     for subset, dmap in [(kr_scored[:top_charts], kr_data), (us_scored[:top_charts], us_data)]:
@@ -131,11 +165,15 @@ def run(
             "us_scanned": len(us_data),
         },
         "items": top_items,
+        "watched": watched_items,
+        "diff": diff_report,
+        "series": series_data,
         "charts": charts_b64,
     }
 
+    lite_payload = {k: v for k, v in payload.items() if k not in ("charts", "series")}
     (run_dir / "screener_results.json").write_text(
-        json.dumps({k: v for k, v in payload.items() if k != "charts"}, ensure_ascii=False, indent=2),
+        json.dumps(lite_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
